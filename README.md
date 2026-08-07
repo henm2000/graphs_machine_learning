@@ -3,9 +3,13 @@
 Course project, *Machine Learning with Graphs*, Tel Aviv University.
 Chen Mizrahi · Tomer Zalberg · Ofek Tovli · Itay Korenfeld
 
-This README is the operational guide — what to run and in what order.
-[`PLAN.md`](PLAN.md) is the research plan: the question, the design decisions and the
-reasoning behind them, including the theory status and the open risks.
+Three companion files:
+
+* [`RUNBOOK.md`](RUNBOOK.md) — **start here to run things.** Step-by-step order, the gates that
+  catch a broken setup early, and what output to keep from each notebook.
+* [`PLAN.md`](PLAN.md) — the research plan: the question, the design decisions and the
+  reasoning, including theory status and open risks.
+* This README — reference: structure, conditions, datasets, protocol.
 
 ---
 
