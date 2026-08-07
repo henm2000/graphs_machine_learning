@@ -1,0 +1,347 @@
+% Traversal-Based Relative Positional Encodings for Graph Neural Networks
+% ACL 2023 template. Drop acl.sty / acl_natbib.bst alongside this file, or open the
+% Overleaf ACL 2023 proceedings template and replace main.tex with this file.
+%
+% BUILD: pdflatex -> bibtex -> pdflatex -> pdflatex
+%
+% Sections 1-5 are complete and do not depend on experimental results.
+% Sections 6-7 and the abstract carry TODO markers; fill them from the assets that
+% shared/07_results_and_figures.ipynb writes to Drive/MyDrive/trpe/:
+%     paper_tables/table1_main.tex   -> Table 1
+%     figures/fig_ablations.pdf      -> Figure 2
+%     figures/fig_efficiency.pdf     -> Figure 3
+%     figures/fig_distance_profile.pdf, fig_curves.pdf -> appendix
+
+\documentclass[11pt]{article}
+\usepackage[]{acl}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+
+\newtheorem{proposition}{Proposition}
+\newcommand{\WL}{\textsc{1-wl}}
+\newcommand{\SPD}{\textsc{spd-wl}}
+\newcommand{\SPC}{\textsc{spc-wl}}
+\newcommand{\TRPE}{\textsc{t-rpe}}
+
+\title{Traversal-Based Relative Positional Encodings\\for Graph Neural Networks}
+
+\author{
+  Chen Mizrahi \and Tomer Zalberg \and Ofek Tovli \and Itay Korenfeld \\
+  Tel Aviv University \\
+  \texttt{\{chenmizrahi,tomerzalberg,ofektovli,itaykorenfeld\}@mail.tau.ac.il}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+% TODO(results): one sentence of headline numbers once the grid is complete.
+Message-passing graph neural networks are bounded by the 1-Weisfeiler--Leman test, and
+positional encodings are the standard remedy. Traversal-based encodings are almost always
+\emph{absolute}: a node is described by its distance to a few anchor nodes, so the encoding
+inherits whatever arbitrariness went into choosing them. We study the \emph{relative}
+alternative, in which the encoding is a function of a node \emph{pair}. Since every edge of a
+sparse graph joins nodes at distance one, a pairwise encoding is only meaningful on a rewired
+graph; we therefore attach the breadth-first hop distance $d(u,v)$, sinusoidally encoded, to
+every pair within $r$ hops, and inject it as an edge feature in GCN and as an additive
+attention bias in GAT. We place the resulting model exactly in the expressiveness hierarchy:
+strictly above 1-WL, no stronger than 3-WL, and strictly strengthened by counting shortest
+paths---each claim confirmed on an explicit witness pair, with the shortest-path witness found
+by exhaustive search and shown to be minimal. Empirically we evaluate on CSL, CLUSTER and
+CIFAR10-SP, chosen so that a sparse, long-diameter regime and a dense, short-diameter regime
+are contrasted directly. \textbf{[TODO: headline result.]}
+\end{abstract}
+
+\section{Introduction}
+
+Message-passing graph neural networks (MPNNs) aggregate information over local neighbourhoods,
+and their ability to distinguish graphs is bounded by the 1-Weisfeiler--Leman colour refinement
+test \citep{xu2019gin,morris2019wlgo}. The bound is not a technicality: it means an MPNN cannot
+see global symmetry, cannot measure how far apart two nodes are, and cannot separate graphs
+that agree locally but differ globally.
+
+Positional encodings (PEs) are the standard response. They enrich node features with a
+structural signal computed outside the message-passing recursion, and they come in two
+families. \emph{Absolute} PEs assign a vector to each node---Laplacian eigenvectors
+\citep{dwivedi2023benchmarking,dwivedi2021generalization}, random-walk return probabilities
+\citep{dwivedi2022lspe}, or distances to a set of anchors
+\citep{you2019pgnn,li2020distance}. \emph{Relative} PEs assign a value to each node
+\emph{pair}, and are the norm in graph transformers, where a pairwise bias is added to every
+attention logit \citep{ying2021graphormer,rampasek2022gps}.
+
+Traversal-based encodings have so far lived almost entirely in the absolute family. This is
+natural---a breadth-first search from an anchor produces a per-node distance, which drops
+straight into the node feature vector---but it carries a cost that is easy to overlook. The
+encoding is a function of the anchor set, so two runs that pick different anchors describe the
+same graph differently, and the choice has to be made by some heuristic (highest degree, say)
+whose ties must then be broken arbitrarily. The relative formulation has no anchors and no
+such choice: $d(u,v)$ is a property of the pair.
+
+The obstacle is that a relative encoding has nowhere to live in a sparse MPNN. Messages travel
+along edges, and every edge joins nodes at distance exactly one, so a function of $d(u,v)$
+restricted to $E$ is constant. Making the relative view meaningful requires changing which
+pairs exchange messages---that is, rewiring \citep{bruel2022rewiring,topping2022curvature}. We
+adopt the natural construction: breadth-first search to depth $r$ from every node, an edge for
+every pair within $r$ hops, and the hop distance as that edge's feature.
+
+This coupling has a consequence we take seriously throughout. Rewiring is itself known to help,
+by shortening paths and relieving over-squashing \citep{alon2021bottleneck}, so an improvement
+over a plain baseline does not by itself credit the positional signal. We therefore run the
+rewired graph with a \emph{constant} edge feature as an explicit control, and read the main
+result only against it.
+
+Our contributions:
+
+\begin{itemize}\itemsep2pt
+\item \textbf{A relative traversal encoding} (\TRPE) that is anchor-free and permutation
+  invariant, costs one breadth-first traversal per node, and injects into GCN and GAT through
+  each architecture's own edge-feature mechanism (\S\ref{sec:method}).
+\item \textbf{An exact position in the expressiveness hierarchy}
+  (\S\ref{sec:theory}): strictly above 1-WL, no stronger than 3-WL, and strictly strengthened
+  by shortest-path counts. Every claim is attached to an explicit witness pair, and the
+  shortest-path witness is found by exhaustive search over all graphs on $n\le6$ nodes,
+  establishing that no smaller one exists.
+\item \textbf{An evaluation designed around the mechanism} (\S\ref{sec:setup}), contrasting a
+  sparse long-diameter benchmark with a dense short-diameter one, and separating the
+  contribution of the encoding from that of the rewiring it requires.
+\end{itemize}
+
+\section{Related Work}
+
+\paragraph{Absolute positional encodings.}
+\citet{dwivedi2023benchmarking} introduced Laplacian eigenvector PEs, which place nodes in a
+global spectral coordinate system. They are expressive but costly---$\mathcal{O}(|V|^3)$ for a
+dense decomposition---and each eigenvector is defined only up to sign, an ambiguity usually
+handled by randomising the sign during training or by architectures invariant to it
+\citep{lim2023signnet}. Random-walk PEs \citep{dwivedi2022lspe} instead record the probability
+of returning to a node after $k$ steps; they are cheaper and sign-free, but stochastic in
+origin. \citet{you2019pgnn} and \citet{li2020distance} use distances to sampled or selected
+anchor nodes, which is the closest prior work to ours in signal but not in form: the encoding
+is per-node and anchor-dependent.
+
+\paragraph{Relative positional encodings.}
+In sequence models, relative position has long been preferred to absolute
+\citep{vaswani2017attention}. The graph analogue appears in graph transformers, where
+Graphormer \citep{ying2021graphormer} adds a learned bias indexed by shortest-path distance to
+every attention logit, and GraphGPS \citep{rampasek2022gps} unifies such biases with local
+message passing. These models pay $\mathcal{O}(|V|^2)$ for dense attention. Our question is
+whether the relative view survives being brought back to a \emph{sparse} architecture, where
+the bias must be carried by explicitly added edges rather than by all-pairs attention.
+
+\paragraph{Rewiring.}
+\citet{alon2021bottleneck} identified over-squashing, and \citet{topping2022curvature} tied it
+to negatively curved edges, motivating rewiring schemes that add or reweight edges. Closest to
+us, \citet{bruel2022rewiring} rewire a graph using positional information and feed the encoding
+as an edge attribute, showing gains across architectures. Our construction follows theirs; what
+we add is the traversal-derived signal, the expressiveness analysis, and---because the two are
+confounded by construction---a control that separates the effect of the rewiring from that of
+the encoding it carries.
+
+\paragraph{Expressiveness.}
+\citet{xu2019gin} and \citet{morris2019wlgo} established the 1-WL bound. Distance-aware
+refinements sit above it: \citet{li2020distance} analyse distance encoding, and
+\citet{zhang2023biconnectivity} define generalised-distance WL (GD-WL), showing that
+shortest-path distance already yields a test strictly stronger than 1-WL. We do not propose a
+new WL variant; we identify which known one our encoding realises, and then bound it from both
+sides.
+
+\section{Method}
+\label{sec:method}
+
+\paragraph{Traversal.}
+For a graph $G=(V,E)$ and a radius $r$, a breadth-first traversal from each $u\in V$ to depth
+$r$ yields the hop distance $d(u,v)$ for every $v$ within $r$ hops, and---at no extra
+cost---the number $\#\mathrm{sp}(u,v)$ of shortest paths realising it. Each traversal is
+$\mathcal{O}(|V|+|E|)$, so the encoding costs $\mathcal{O}(|V|(|V|+|E|))$ per graph and is
+computed once.
+
+In practice we compute both quantities algebraically rather than with an explicit
+per-source traversal, which would mean $|V|$ interpreter-level loops per graph. Writing $A$ for
+the adjacency matrix, $(A^k)_{uv}$ counts \emph{walks} of length $k$, so the smallest $k$ with
+$(A^k)_{uv}>0$ is exactly $d(u,v)$; and at $k=d(u,v)$ every length-$k$ walk is necessarily a
+shortest \emph{path}, so $(A^{d(u,v)})_{uv}=\#\mathrm{sp}(u,v)$. Both therefore fall out of $r$
+matrix products. The equivalence is verified against a reference breadth-first search.
+
+\paragraph{Rewiring.}
+We take $E_r=\{(u,v):1\le d(u,v)\le r\}$. At $r=1$ this is the original graph and the encoding
+below is constant, which makes $r=1$ a built-in degenerate control rather than only a
+hyperparameter setting.
+
+\paragraph{Encoding.}
+Each rewired edge carries $\gamma(d(u,v))\in\mathbb{R}^{p}$, a sinusoidal embedding of its hop
+distance in the sense of \citet{vaswani2017attention}, so that nearby distances receive nearby
+representations instead of arbitrary unrelated ones. A small MLP maps $\gamma(d)$---optionally
+concatenated with $\log(1+\#\mathrm{sp}(u,v))$---to the edge representation $e_{uv}$.
+
+\paragraph{Injection.}
+The encoding enters each architecture at its natural point. In GAT, $e_{uv}$ is an additive
+bias on the attention logit of edge $(u,v)$, which is what a relative positional encoding means
+in the transformer sense. In GCN, which has no edge-feature channel, $e_{uv}$ is mapped to a
+learned scalar gate $w_{uv}=\sigma(\mathbf{w}^\top e_{uv})$ used as an edge weight.
+
+\paragraph{Invariance.}
+Since $d(u,v)$ and $\#\mathrm{sp}(u,v)$ are isomorphism invariants of the pair, $e_{uv}$ is
+permutation equivariant and the pooled model output is permutation invariant. This is worth
+stating because the obvious alternative traversal signal does \emph{not} have the property: a
+BFS \emph{visit-order} index depends on the order in which neighbours happen to be enumerated,
+so relabelling the nodes changes the encoding and the model is not a function of the graph at
+all. We verify both the invariance of our encoding and the failure of the order-based
+alternative empirically.
+
+\section{Expressive Power}
+\label{sec:theory}
+
+Write $c^t(v)$ for the colour of $v$ after $t$ refinement rounds. \WL{} refines by
+$c^{t+1}(v)=\mathrm{HASH}(c^t(v),\{\!\{c^t(u):u\in N(v)\}\!\})$. Define \SPD{} by
+\[
+c^{t+1}(v)=\mathrm{HASH}\big(c^t(v),\{\!\{(d(u,v),c^t(u)):u\neq v\}\!\}\big),
+\]
+and \SPC{} identically but with the pair label $(d(u,v),\#\mathrm{sp}(u,v))$. For
+$r\ge\mathrm{diam}(G)$, \TRPE{} realises \SPD{}; the M4 variant realises \SPC{}.
+
+\begin{proposition}[Lower bound]\label{prop:lower}
+\SPD{} refines \WL{}, strictly.
+\end{proposition}
+Refinement is immediate: the neighbours of $v$ are exactly the pairs with $d(u,v)=1$, so any
+\WL{} colour class is a union of \SPD{} classes. Strictness needs a witness, and decalin versus
+bicyclopentyl serves: both have $10$ nodes, $11$ edges and the same degree sequence, \WL{}
+cannot separate them, and \SPD{} does. The CSL family gives a second witness, and one that the
+experiments then exercise directly.
+
+\begin{proposition}[Upper bound]\label{prop:upper}
+\SPD{} and \SPC{} are both strictly weaker than 3-WL.
+\end{proposition}
+Strongly regular graphs with equal parameters have, by definition, identical distance
+distributions: adjacent pairs share $\lambda$ common neighbours and non-adjacent pairs $\mu$,
+and the diameter is $2$. The $4\times4$ rook's graph and the Shrikhande graph are both
+$\mathrm{SR}(16,6,2,2)$; neither \SPD{} nor \SPC{} separates them, while 3-WL does. This bounds
+our own method, and we report it as such.
+
+\begin{proposition}[Counting paths helps]\label{prop:count}
+\SPC{} refines \SPD{}, strictly.
+\end{proposition}
+Refinement is immediate since the label $(d,\#\mathrm{sp})$ determines $d$. For strictness we
+searched exhaustively over all graphs on $n\le6$ nodes for a pair that \SPD{} cannot separate
+and \SPC{} can. A witness exists at $n=6$ and none at $n\le5$, so $6$ is minimal. The two
+graphs have $6$ nodes and $8$ edges, the same degree sequence, and---crucially---the
+\emph{same} multiset of pairwise distances $\{1^{16},2^{12},3^{2}\}$; they differ only in how
+many shortest paths realise those distances. Hop distance alone therefore provably cannot
+separate them, which is exactly what the extra channel is for.
+
+Together these place the method as
+$\WL\subsetneq\TRPE\subseteq\text{GD-WL}\subsetneq\text{3-WL}$
+\citep{zhang2023biconnectivity}.
+
+\section{Experimental Setup}
+\label{sec:setup}
+
+\paragraph{Datasets.}
+We use three benchmarks from \citet{dwivedi2023benchmarking}, all with predefined splits and
+none molecular---molecular graphs are largely within reach of 1-WL, so they offer little
+headroom for an expressiveness intervention. \textbf{CSL} (150 graphs, 41 nodes) consists of
+circulant skip-link graphs that are $4$-regular and featureless; 1-WL sees ten identical
+classes, so a plain GNN can only guess at $10\%$. It has no predefined split, so we use
+stratified $5$-fold cross-validation. \textbf{CLUSTER} (12k graphs, $\sim$117 nodes, node
+classification) is a stochastic block model with average degree $\approx37$ and diameter $2$--$3$.
+\textbf{CIFAR10-SP} (45k graphs, $\sim$117 nodes) consists of $8$-nearest-neighbour superpixel
+graphs, which are sparse and long-diameter.
+
+The last two are not two attempts at the same experiment. They are the dense and sparse arms of
+a deliberate contrast: a relative distance encoding can only carry information if distances are
+spread out, and on a graph of diameter $2$ every pair sits at distance $1$ or $2$. We measure
+the distance profile of each dataset before training and report it in
+Appendix~\ref{app:diagnostic}.
+
+\paragraph{Conditions.}
+\textbf{M0} is the architecture with no PE (control); \textbf{M1} adds Laplacian eigenvector
+PEs with sign-flip augmentation; \textbf{M2} adds random-walk PEs; \textbf{M3} is \TRPE{}; and
+\textbf{M4} adds the shortest-path-count channel. Each runs under both GCN and GAT.
+
+\paragraph{Protocol.}
+Four message-passing layers, hidden width $64$, residual connections, batch normalisation, Adam
+at $10^{-3}$. Model selection is on validation accuracy and the test set is read once, at the
+selected epoch; we do not average test accuracy over the final epochs, which would conflate
+convergence noise with performance. Parameter counts are reported rather than forced to match:
+the PE modules add $500$--$1000$ parameters to an $\sim$18k-parameter backbone, so no condition
+holds a meaningful capacity advantage.
+
+\paragraph{Ablations.}
+On CLUSTER with GCN we vary the radius $r\in\{1,2,3\}$, the encoder (raw scalar, one-hot,
+sinusoidal, learned table), and the injection depth. The critical variant is
+\textbf{rewire-only}: the rewired graph with a \emph{constant} edge feature. It has all of M3's
+added connectivity and none of its positional signal, and it is the only condition that can
+tell us whether an improvement is attributable to the encoding or to the rewiring that carrying
+it requires.
+
+\section{Results and Discussion}
+
+% TODO(results): \input the generated table once the grid is complete.
+% \input{table1_main}
+% Table 1 is written by shared/07_results_and_figures.ipynb to
+% Drive/MyDrive/trpe/paper_tables/table1_main.tex
+
+\textbf{[TODO: Table 1 -- main results, 3 datasets $\times$ 2 architectures $\times$ 5
+conditions.]}
+
+\paragraph{Expressivity.}
+\textbf{[TODO: Table 2 -- witness-pair separation, the minimal Proposition~\ref{prop:count}
+witness, and the fraction of 1-WL-indistinguishable pairs separated on each benchmark.]}
+The CSL column is the sharp test: M0 is pinned at chance by construction, so any condition
+above chance has demonstrably escaped the 1-WL bound. We expect M2 to solve CSL as well;
+where that happens, the comparison of interest is cost rather than accuracy.
+
+\paragraph{Sparse versus dense.}
+\textbf{[TODO: contrast CIFAR10-SP against CLUSTER and relate the gap to the measured distance
+profiles.]}
+
+\paragraph{What the gain is attributable to.}
+\textbf{[TODO: report M3 minus rewire-only.]} If the gap is near zero, the honest reading is
+that the benefit came from added connectivity rather than from position, and the contribution
+is better described as a rewiring scheme than as a positional encoding.
+
+\paragraph{Cost.}
+\textbf{[TODO: Figure 3.]} Preprocessing is cheap next to a spectral decomposition, but the
+rewiring multiplies the edge count and that multiplier applies to every epoch. Both belong in
+any claim that the method is efficient.
+
+\section{Limitations and Conclusion}
+
+We studied traversal-based \emph{relative} positional encodings, which replace the anchor set
+of absolute traversal encodings with a signal defined directly on node pairs, and require
+rewiring in order to reach a sparse message-passing architecture.
+
+Three limitations are structural rather than incidental. The method is bounded below 3-WL by
+Proposition~\ref{prop:upper}, and strongly regular graphs are exactly the case it cannot
+handle. It degenerates on dense, short-diameter graphs, where nearly every pair sits at
+distance one or two and the encoding has almost nothing to say---which is why CLUSTER is in the
+evaluation rather than omitted from it. And the radius $r$ is a genuine cost knob, not a free
+parameter: the edge count, and with it the per-epoch training cost, grows quickly with $r$.
+
+\textbf{[TODO: one or two sentences of conclusion, once the results are in. Report the negative
+findings as findings.]}
+
+\bibliography{references}
+\bibliographystyle{acl_natbib}
+
+\appendix
+
+\section{Distance diagnostics}
+\label{app:diagnostic}
+\textbf{[TODO: Figure -- per-dataset hop-distance histogram, mean diameter, and the edge
+blow-up factor $|E_r|/|E|$ at each radius. Generated by
+\texttt{shared/00\_setup\_and\_diagnostic.ipynb}.]}
+
+\section{Reproducibility}
+Every experiment is a self-contained Colab notebook; each run writes one JSON file, and all
+tables and figures in this paper are regenerated from those files by a single notebook. Code:
+\textbf{[TODO: repository URL]}.
+
+\end{document}

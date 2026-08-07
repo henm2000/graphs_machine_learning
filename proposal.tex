@@ -1,0 +1,65 @@
+\documentclass{acmart}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\setcopyright{none}
+\settopmatter{printacmref=false}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage[utf8]{inputenc}
+\newcommand{\x}{\mathbf{x}}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{hyperref}
+
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+
+\citestyle{acmauthoryear}
+
+\title{Enhancing GNN Expressivity via Traversal-Based Relative Positional Encodings}
+\author{Chen Mizrahi - 314921578}
+\author{Tomer Zalberg - 324170679}
+\author{Ofek Tovli - 211994249}
+\author{Itay Korenfeld - 214179095}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\paragraph{TL;DR} \textit{We aim to systematically break the 1-WL expressivity bottleneck in standard MPNNs by introducing a deterministic, highly efficient Relative Positional Encoding (RPE) mechanism based on Breadth-First Search (BFS) distance mappings.}
+
+\section{Background \& Motivation}
+
+\begin{itemize}
+  \item[•] \textbf{Problem statement} — The expressive power of standard Message Passing Neural Networks (MPNNs) is theoretically bounded by the 1-Weisfeiler-Leman (1-WL) isomorphism test.
+  \item[•] \textbf{Why it matters} — This fundamental limitation prevents standard GNNs from recognizing global symmetries and long-range dependencies. To address this, Positional Encodings (PEs) are utilized. 
+  \item[•] \textbf{Prior work limits} — Current positional encodings generally fall into two categories: Absolute PEs (e.g., Laplacian eigenvectors, random walks) and Relative Positional Encodings (RPEs). While Absolute PEs often suffer from basis ambiguity and heavy computational costs ($O(|V|^3)$ for spectral methods), RPEs capture pairwise structural relationships \cite{bruel2022rewiring}.
+\end{itemize}
+
+\section{Proposed Approach}
+
+\begin{itemize}
+  \item[•] \textbf{Core idea} — We aim to introduce a deterministic Relative Positional Encoding based on Breadth-First Search (BFS) distance mappings. 
+  \item[•] \textbf{Technical outline} — By extracting the BFS traversal rank of nodes relative to selected high-connectivity anchors, we construct a structural distance profile. To map these discrete metrics into smooth representations, we will activate the BFS-derived encodings through sinusoidal functions.
+  \item[•] \textbf{Novelty} — We propose a highly efficient RPE mechanism leveraging classical graph traversal algorithms. With a time complexity of just $O(|V|+|E|)$, we hypothesize this approach will systematically break the 1-WL bottleneck. A primary theoretical objective of this project is to formally prove that the resulting model is strictly more expressive than standard 1-WL GNNs.
+\end{itemize}
+
+\section{Experimental Plan}
+
+\begin{itemize}
+  \item[•] \textbf{Datasets} — We will evaluate our models using standard, large-scale benchmarks from GraphBench and OGB. We assume access to standard GPU computing resources to train models on the larger OGB/GraphBench networks. All datasets and baseline implementations will be sourced from publicly available libraries.
+  \item[•] \textbf{Baselines / comparisons} — To ensure our RPEs generalize, we will evaluate them across multiple architectures, specifically a standard Graph Convolutional Network (GCN) and a Graph Attention Network (GAT). We will compare our traversal-based RPE against a control group consisting of standard architectures without PEs, as well as models augmented with standard Laplacian PEs and Random Walk PEs. 
+  \item[•] \textbf{Metrics} — Success will be measured by empirically significant improvements in test accuracy on the pre-defined splits, as well as a successful theoretical proof of expressivity.
+\end{itemize}
+
+\begin{thebibliography}{9}
+
+\bibitem{bruel2022rewiring}
+Rickard Brüel-Gabrielsson, Mikhail Yurochkin, and Justin Solomon.
+\href{https://arxiv.org/pdf/2201.12674}{Rewiring with Positional Encodings for Graph Neural Networks}.
+
+\end{thebibliography}
+
+\end{document}
