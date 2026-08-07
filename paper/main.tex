@@ -55,7 +55,11 @@ every pair within $r$ hops, and inject it as an edge feature in GCN and as an ad
 attention bias in GAT. We place the resulting model exactly in the expressiveness hierarchy:
 strictly above 1-WL, no stronger than 3-WL, and strictly strengthened by counting shortest
 paths---each claim confirmed on an explicit witness pair, with the shortest-path witness found
-by exhaustive search and shown to be minimal. Empirically we evaluate on CSL, CLUSTER and
+by exhaustive search and shown to be minimal. We further show that expressive power alone is
+not enough: on a vertex-transitive graph with uniform features, the normalised aggregation used
+by both GCN and GAT algebraically cancels any edge weighting, so a relative encoding injected
+that way provably cannot help---and empirically scores exactly chance on CSL. How the encoding
+is injected turns out to matter as much as what it encodes. Empirically we evaluate on CSL, CLUSTER and
 CIFAR10-SP, chosen so that a sparse, long-diameter regime and a dense, short-diameter regime
 are contrasted directly. \textbf{[TODO: headline result.]}
 \end{abstract}
@@ -102,13 +106,19 @@ Our contributions:
 
 \begin{itemize}\itemsep2pt
 \item \textbf{A relative traversal encoding} (\TRPE) that is anchor-free and permutation
-  invariant, costs one breadth-first traversal per node, and injects into GCN and GAT through
-  each architecture's own edge-feature mechanism (\S\ref{sec:method}).
+  invariant, costs one breadth-first traversal per node, and reaches GCN and GAT through two
+  complementary channels (\S\ref{sec:method}).
 \item \textbf{An exact position in the expressiveness hierarchy}
   (\S\ref{sec:theory}): strictly above 1-WL, no stronger than 3-WL, and strictly strengthened
   by shortest-path counts. Every claim is attached to an explicit witness pair, and the
   shortest-path witness is found by exhaustive search over all graphs on $n\le6$ nodes,
   establishing that no smaller one exists.
+\item \textbf{A negative result about injection} (Proposition~\ref{prop:cancel}): because GCN
+  and GAT both \emph{normalise} their aggregation, an edge-weight or attention-bias injection
+  cancels algebraically on vertex-transitive graphs with uniform features. A relative encoding
+  delivered that way cannot help on CSL no matter how expressive it is, and measurably does
+  not. Prior work reports relative encodings almost exclusively inside dense attention, where
+  the issue never surfaces.
 \item \textbf{An evaluation designed around the mechanism} (\S\ref{sec:setup}), contrasting a
   sparse long-diameter benchmark with a dense short-diameter one, and separating the
   contribution of the encoding from that of the rewiring it requires.
@@ -182,10 +192,23 @@ representations instead of arbitrary unrelated ones. A small MLP maps $\gamma(d)
 concatenated with $\log(1+\#\mathrm{sp}(u,v))$---to the edge representation $e_{uv}$.
 
 \paragraph{Injection.}
-The encoding enters each architecture at its natural point. In GAT, $e_{uv}$ is an additive
-bias on the attention logit of edge $(u,v)$, which is what a relative positional encoding means
-in the transformer sense. In GCN, which has no edge-feature channel, $e_{uv}$ is mapped to a
-learned scalar gate $w_{uv}=\sigma(\mathbf{w}^\top e_{uv})$ used as an edge weight.
+The encoding enters through two channels. The first is the natural one for each architecture:
+in GAT, $e_{uv}$ is an additive bias on the attention logit of edge $(u,v)$, which is what a
+relative positional encoding means in the transformer sense; in GCN, which has no edge-feature
+channel, $e_{uv}$ becomes a learned scalar gate $w_{uv}=\sigma(\mathbf{w}^\top e_{uv})$ used as
+an edge weight.
+
+The second channel is not optional, for reasons Proposition~\ref{prop:cancel} makes precise.
+Each node also receives its aggregated relative-distance profile,
+\[
+p_v=\!\!\sum_{u\,:\,1\le d(u,v)\le r}\!\!\gamma\big(d(u,v)\big),
+\qquad x_v\leftarrow\big[\,x_v\ \|\ \mathrm{MLP}(p_v)\,\big],
+\]
+which is anchor-free, permutation invariant, and exactly the aggregation GD-WL performs. For the
+$\#\mathrm{sp}$ variant the summand is $[\gamma(d),\ \log(1+\#\mathrm{sp})\cdot\gamma(d)]$, which
+retains distance and path count \emph{jointly}; summing the two separately would discard which
+path counts belong to which distance, and that joint information is precisely what
+\S\ref{sec:setup} relies on.
 
 \paragraph{Invariance.}
 Since $d(u,v)$ and $\#\mathrm{sp}(u,v)$ are isomorphism invariants of the pair, $e_{uv}$ is
@@ -240,6 +263,34 @@ Together these place the method as
 $\WL\subsetneq\TRPE\subseteq\text{GD-WL}\subsetneq\text{3-WL}$
 \citep{zhang2023biconnectivity}.
 
+\paragraph{Expressive power is not enough: injection matters.}
+The propositions above concern what the \emph{encoding} can distinguish. They say nothing about
+whether a given architecture can read it, and the gap between the two is not academic.
+
+\begin{proposition}[Normalised aggregation cancels edge weighting]\label{prop:cancel}
+Let $G$ be vertex-transitive with uniform node features, and let the rewired edge weights depend
+only on $d(u,v)$. Then a GCN layer using those weights, or a GAT layer using them as attention
+biases, computes an output independent of the weights.
+\end{proposition}
+
+\noindent\emph{Proof.} By vertex-transitivity every node has the same multiset of incident edge
+distances, hence the same weighted degree $D$. GCN's symmetric normalisation gives
+$\hat w_{uv}=w_{uv}/\sqrt{\hat d_u\hat d_v}=w_{uv}/D$, so $\sum_u \hat w_{uv}=1$ for every $v$.
+With $h_u=h$ for all $u$, the layer returns $\sum_u \hat w_{uv}Wh_u=Wh$, independent of $w$. For
+GAT the softmax normalises the attention coefficients to sum to one, giving the same conclusion.
+$\square$
+
+This is not a corner case: CSL, the benchmark that most sharply motivates positional encodings,
+is exactly vertex-transitive with uniform features. A weight-only model therefore \emph{cannot}
+exceed chance there, and in our experiments it scored $10.00\pm0.00\%$ across 20 runs --- chance,
+with zero variance. Aggregating the encoding into $p_v$ escapes the cancellation because a sum is
+not renormalised: $p_v=\sum_k n_k(v)\gamma(k)$ recovers how many nodes lie at each distance, and
+the $\gamma(k)$ are linearly independent.
+
+We state this because the literature reports relative encodings almost exclusively inside dense
+attention, where the question does not arise. Carrying a relative encoding into a sparse,
+normalising architecture makes \emph{how} it is injected as consequential as what it encodes.
+
 \section{Experimental Setup}
 \label{sec:setup}
 
@@ -265,6 +316,21 @@ Appendix~\ref{app:diagnostic}.
 PEs with sign-flip augmentation; \textbf{M2} adds random-walk PEs; \textbf{M3} is \TRPE{}; and
 \textbf{M4} adds the shortest-path-count channel. Each runs under both GCN and GAT.
 
+\paragraph{A prediction registered before training.}
+The distance profiles of the CSL classes are fixed by the dataset, so the ceiling our encoding
+can reach there is computable in advance. At $r=3$ only $6$ of the $10$ classes have distinct
+profiles; at $r\geq4$, $9$ do. The two that remain tied are CSL$(41,6)$ and CSL$(41,16)$, whose
+distance multisets are identical --- and adding shortest-path counts separates them. We therefore
+predict, before running anything, a ceiling of $\mathbf{90\%}$ for M3 and $\mathbf{100\%}$ for M4
+on CSL, and we set $r=6$ (its diameter). Proposition~\ref{prop:count} thus has an instance on a
+standard benchmark, not only on the synthetic witness. For CLUSTER and CIFAR10-SP we use $r=2$.
+
+Likewise, the distance diagnostic (Appendix~\ref{app:diagnostic}) is measured before training and
+predicts \emph{where} the encoding can help at all: CLUSTER has mean diameter $2.2$ with every
+pair at distance $1$ or $2$, whereas CIFAR10-SP has mean diameter $8.5$ and CSL $6.0$. If the
+method behaves as claimed, it should give little or nothing on CLUSTER and should help on the
+other two.
+
 \paragraph{Protocol.}
 Four message-passing layers, hidden width $64$, residual connections, batch normalisation, Adam
 at $10^{-3}$. Model selection is on validation accuracy and the test set is read once, at the
@@ -275,11 +341,14 @@ holds a meaningful capacity advantage.
 
 \paragraph{Ablations.}
 On CLUSTER with GCN we vary the radius $r\in\{1,2,3\}$, the encoder (raw scalar, one-hot,
-sinusoidal, learned table), and the injection depth. The critical variant is
-\textbf{rewire-only}: the rewired graph with a \emph{constant} edge feature. It has all of M3's
-added connectivity and none of its positional signal, and it is the only condition that can
-tell us whether an improvement is attributable to the encoding or to the rewiring that carrying
-it requires.
+sinusoidal, learned table), and the injection depth. Two variants are load-bearing.
+\textbf{rewire-only} is the rewired graph with a \emph{constant} edge feature: it has all of M3's
+added connectivity and none of its positional signal, and it is the only condition that can tell
+us whether an improvement is attributable to the encoding or to the rewiring that carrying it
+requires. \textbf{weight-only} and \textbf{profile-only} isolate the two injection channels of
+\S\ref{sec:method}. Proposition~\ref{prop:cancel} shows the weight channel is vacuous on CSL;
+CLUSTER has genuine node features, so the cancellation argument does not apply there and these
+rows measure whether that channel carries anything when it is able to.
 
 \section{Results and Discussion}
 

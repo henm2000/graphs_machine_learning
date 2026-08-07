@@ -1,7 +1,12 @@
 # Runbook — what to run, in what order, and what to send back
 
+> **Running in parallel across four people? Go to [`run/`](run/) instead.** Each of you gets a
+> folder with only your notebooks and your own README. The rest of this file is the single-person
+> sequence and the reference for what each phase means — see
+> [Running in parallel](#running-in-parallel) below for how the split works.
+
 Work top to bottom. Each phase has a **gate**: a cheap check that must pass before the next
-phase is worth the GPU time. The whole grid is ~22 GPU-hours; the gates exist so that a broken
+phase is worth the GPU time. The whole grid is ~27 GPU-hours; the gates exist so that a broken
 run costs you ten minutes instead of two days.
 
 After each phase, paste the output back to me and I'll write it into the paper. The
@@ -73,7 +78,13 @@ Run these two first, alone:
 | # | Notebook | Time | Expect |
 |---|---|---|---|
 | 3 | `gcn/csl/M0_baseline.ipynb` | ~5 min | test accuracy **≈ 10%** |
-| 4 | `gcn/csl/M3_trpe.ipynb` | ~10 min | test accuracy **well above 10%** |
+| 4 | `gcn/csl/M3_trpe.ipynb` | ~10 min | test accuracy **well above 10%**, ceiling **90%** |
+| 4b | `gcn/csl/M4_trpe_sp.ipynb` | ~10 min | should beat M3, ceiling **100%** |
+
+The two ceilings are not guesses. The CSL distance profiles are fixed by the dataset, so we
+computed in advance that at $r\ge4$ the hop distance separates 9 of the 10 classes and that the
+last tied pair — CSL(41,6) vs CSL(41,16) — is separated only by shortest-path counts. M3 should
+therefore plateau near 90% and M4 reach 100%.
 
 **Gate.** CSL graphs are 4-regular and featureless, so a 1-WL-bounded model provably cannot do
 better than guessing. M0 near 10% confirms the pipeline is honest; M3 far above 10% confirms
@@ -198,6 +209,57 @@ Phase 6  [ ] 07_results_and_figures
 | Two people ran the same notebook | Harmless — same filename, same content. |
 | PyG warns about a `pre_transform` mismatch | You changed `LAP_K` or `RW_STEPS` after a cached run. Delete `/content/trpe_data/{DATASET}_{M1,M2}` and re-run. |
 | Anything reads `FAIL` in notebook 00 | Stop and send it to me — that's an API change, and the fix belongs in the notebooks before you spend GPU time. |
+
+## Running in parallel
+
+**It works.** Every run writes its own file at
+`MyDrive/trpe/results/{arch}/{dataset}/{condition}_seed{n}.json`, and the four shares below are
+disjoint, so no two people ever write the same path. Nothing is shared at runtime — no locks,
+no coordination, no ordering constraints beyond the one gate.
+
+Four ready-made folders are in [`run/`](run/). **Each person uploads only their own folder** to
+their own Drive and follows the README inside it.
+
+| | Share | Notebooks | Time |
+|---|---|---|---|
+| [**Person 1**](run/person1/README.md) | GCN/CSL + GCN/CLUSTER, both gates, final collection | 15 | ~7.2 h |
+| [**Person 2**](run/person2/README.md) | GAT/CSL + GAT/CLUSTER + efficiency | 14 | ~7.1 h |
+| [**Person 3**](run/person3/README.md) | GCN/CIFAR10-SP + ablations Part A | 5 | ~7.0 h |
+| [**Person 4**](run/person4/README.md) | GAT/CIFAR10-SP + ablations Part B | 5 | ~6.8 h |
+
+Notebook counts are lopsided because the times are not: a CIFAR10-SP `M3` run alone is worth
+two dozen CSL runs. The split balances *hours*, which is what actually matters.
+
+### The three things that make parallel work
+
+**Everyone runs `shared/00` first.** It is a five-minute check of *your* Colab environment — PyG
+versions differ between accounts, and `GATConv(edge_dim=...)` is the check that decides whether
+the GAT half of the project has a mechanism at all. It is the one notebook that is deliberately
+duplicated across all four folders.
+
+**One gate, held by Person 1.** Before anyone commits to a multi-hour run, Person 1 runs
+`gcn/csl/M0` and `gcn/csl/M3` (~20 min total) and reports both numbers. M0 must land near
+**10%** and M3 far above it — CSL graphs are 4-regular and featureless, so a 1-WL-bounded model
+provably cannot beat guessing. Persons 2–4 run only `shared/00` until Person 1 gives the go-ahead.
+Skipping this risks four people burning seven hours each on a pipeline that was broken from the
+start.
+
+**Merge at the end.** Each person mounts their own Drive, so there are four separate result
+trees. When everyone is done they send their whole `MyDrive/trpe/results/` folder to Person 1,
+who copies all four into one tree — the paths never collide — and runs
+`shared/07_results_and_figures.ipynb` over the union. That notebook's last cell reports which
+grid cells are still empty, so a missed run is visible rather than silently absent.
+
+### The ablation split
+
+`shared/05_ablations.ipynb` is the one notebook that had to be divided rather than assigned, at
+~4.5 h. It is split by variant into two halves that write disjoint filenames:
+
+* **Part A** (Person 3) — `r1`, `r2`, `r3`, `rewire-only`
+* **Part B** (Person 4) — `enc-raw`, `enc-onehot`, `enc-learnable`, `layerwise`
+
+Part A carries `rewire-only`, the row that determines whether the paper's central claim is "a
+positional encoding" or "a rewiring scheme". If Person 3 runs nothing else, they should run that.
 
 ## What I'll do with each batch
 

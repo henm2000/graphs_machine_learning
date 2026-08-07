@@ -59,8 +59,13 @@ For a graph `G=(V,E)` and radius `r`:
   encoding is constant, which makes `r=1` a built-in degenerate control.
 - **Encoding.** `γ(d)` = sinusoidal embedding of the hop distance; a small MLP maps it —
   optionally concatenated with `log(1 + #sp)` — to the edge representation.
-- **Injection.** GAT: an additive bias on the attention logit, via `GATConv(edge_dim=...)`.
-  GCN: no edge-feature channel, so a learned scalar gate `σ(wᵀe)` supplied as `edge_weight`.
+- **Injection — two channels, both required.**
+  1. *Edge weighting.* GAT: an additive bias on the attention logit via `GATConv(edge_dim=...)`.
+     GCN: a learned scalar gate `σ(wᵀe)` supplied as `edge_weight`.
+  2. *Node distance profile.* `p_v = Σ_{u: 1≤d(u,v)≤r} γ(d(u,v))`, concatenated to `x_v`.
+
+  Channel 2 was added on 2026-08-07 after channel 1 alone scored **exactly chance** on CSL.
+  See "The injection defect" below — it is not a tuning detail, it is a proof.
 
 **Implementation note.** Distances and path counts are computed algebraically, not with a
 per-source BFS — `|V|` interpreter-level traversals per graph is far too slow for 45k graphs.
@@ -125,6 +130,34 @@ backbone, so no condition holds a meaningful capacity advantage.
 
 ---
 
+## The injection defect (found by the Phase-2 gate, 2026-08-07)
+
+The first version injected the encoding **only** as an edge weight / attention bias. On CSL it
+scored `10.00 ± 0.00` across 20 runs — chance, zero variance, identical to the M0 control.
+
+It is not a bug, it is a theorem. CSL's rewired graph is vertex-transitive, so every node has
+the same weighted degree `D`. GCN's symmetric normalisation then gives `Σ_u ŵ_uv = 1` for every
+`v` **regardless of the weights**, so with uniform node features the layer returns `Wx` for any
+`w` — the gate cancels algebraically. GAT is no better: its softmax normalises attention to sum
+to one, with the same consequence. Verified numerically: normalised row sums `min=max=1.000000`.
+
+The fix is channel 2. A *sum* is not renormalised, so `p_v = Σ_k n_k(v)·γ(k)` recovers how many
+nodes lie at each distance, and the `γ(k)` are linearly independent.
+
+Two further facts fell out of the diagnosis, both computed **before** any training:
+
+* `RADIUS=3` was too small for CSL regardless — it separates only 6 of 10 classes (60% ceiling).
+  Raised to `r=6`, CSL's diameter. (`r=4` already suffices; `r=6` makes the theory statement
+  clean, and CSL is tiny.)
+* At any `r≥4` the hop distance separates **9** of 10 classes: CSL(41,6) and CSL(41,16) have
+  byte-identical distance multisets. Shortest-path counts separate them. So **M3 has a 90%
+  ceiling on CSL and M4 exactly 100%** — a pre-registered prediction, and Proposition 4 with an
+  instance on a standard benchmark rather than only a synthetic 6-node witness.
+
+This is now a contribution rather than a setback: prior work reports relative encodings almost
+exclusively inside dense attention, where normalisation never bites. The failed run cost three
+minutes and became Proposition 5 in the paper.
+
 ## Theory — status: **verified**
 
 Write `c^t(v)` for the colour after `t` rounds. Define SPD-WL by
@@ -138,7 +171,8 @@ propositions hold on explicit witnesses.
 |---|---|---|---|
 | **Prop. 2** | SPD-WL ⊋ 1-WL | decalin / bicyclopentyl; CSL(41,2)/CSL(41,3) | 1-WL fails, SPD-WL separates ✓ |
 | **Prop. 3** | SPD-WL, SPC-WL ⊉ 3-WL | 4×4 rook / Shrikhande, both SR(16,6,2,2) | neither variant separates ✓ |
-| **Prop. 4** | SPC-WL ⊋ SPD-WL | 6 nodes, 8 edges, found by exhaustive search | SPD-WL fails, SPC-WL separates ✓ |
+| **Prop. 4** | SPC-WL ⊋ SPD-WL | 6 nodes, 8 edges, found by exhaustive search; also CSL(41,6)/CSL(41,16) | SPD-WL fails, SPC-WL separates ✓ |
+| **Prop. 5** | weight-only injection cancels under normalised aggregation | CSL, weight-only model | `10.00 ± 0.00`, chance ✓ |
 
 The Prop. 4 witness is **minimal**: exhaustive search found none on ≤5 nodes. The two graphs
 share size, degree sequence *and* the complete multiset of pairwise distances `{1¹⁶, 2¹², 3²}`,
@@ -185,9 +219,12 @@ ceiling and any dense-graph degeneracy are reported as findings.
 
 ## Risks
 
-**CLUSTER may be degenerate.** ~117 nodes, ~4300 edges → average degree ≈ 37, diameter 2–3.
-Two-hop rewiring nearly completes the graph and every distance is 1 or 2, so the relative
-signal may carry almost nothing. *Handling:* this is framed as design rather than accident —
+**CLUSTER is degenerate — confirmed 2026-08-07.** Measured: mean diameter **2.2**, 100% of pairs
+at distance ≤ 2, 3.3× edge blow-up. *Decision: keep it.* Because the diagnostic ran before any
+training, we now hold a pre-registered prediction — T-RPE should give little or nothing on
+CLUSTER (diameter 2.2) and should help on CIFAR10-SP (8.5) and CSL (6.0). A prediction that
+comes true is far stronger evidence for the mechanism than an unexplained accuracy win. Framed
+as design rather than accident —
 CIFAR10-SP (sparse 8-NN, large diameter) versus CLUSTER (dense, tiny diameter) is a deliberate
 contrast testing the hypothesis that traversal encodings help precisely when graphs are sparse
 and long-diameter. Notebook 00's distance diagnostic decides before ~2h is spent: if CLUSTER
@@ -231,5 +268,9 @@ positional encoding — only a rewiring scheme.
 Built and verified: all 35 notebooks, the theory (notebook 01 executed, all propositions
 confirmed), and paper §§1–5.
 
-Remaining: run notebook 00 and settle the CLUSTER question, run the grid, then fill §6, the
+**Done since:** notebook 00 run (all API checks pass; CLUSTER confirmed degenerate); the Phase-2
+gate caught the injection defect; dual-channel injection implemented across all 30 leaf
+notebooks and the ablations; CSL radius 3 → 6; Proposition 5 added to the paper.
+
+**Remaining:** re-run the Phase-2 gate on the fixed model, then the grid, then fill §6, the
 conclusion and the abstract from the generated assets.
