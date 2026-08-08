@@ -1,0 +1,129 @@
+{
+  "witness_pairs": [
+    {
+      "pair": "decalin / bicyclopentyl",
+      "prop": "Prop. 2",
+      "1-WL": "-",
+      "SPD-WL": "separates",
+      "SPcount-WL": "separates"
+    },
+    {
+      "pair": "CSL(41,2) / CSL(41,3)",
+      "prop": "Prop. 2",
+      "1-WL": "-",
+      "SPD-WL": "separates",
+      "SPcount-WL": "separates"
+    },
+    {
+      "pair": "CSL(41,4) / CSL(41,5)",
+      "prop": "Prop. 2",
+      "1-WL": "-",
+      "SPD-WL": "separates",
+      "SPcount-WL": "separates"
+    },
+    {
+      "pair": "4x4 rook / Shrikhande  SR(16,6,2,2)",
+      "prop": "Prop. 3",
+      "1-WL": "-",
+      "SPD-WL": "-",
+      "SPcount-WL": "-"
+    }
+  ],
+  "prop4_witness": {
+    "n": 6,
+    "G1": [
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        2,
+        4
+      ]
+    ],
+    "G2": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        3,
+        4
+      ]
+    ]
+  },
+  "separation_rates": [
+    {
+      "dataset": "CSL",
+      "sampled": 120,
+      "wl_collisions": 7140,
+      "spd_separated": 6336,
+      "spc_separated": 6480,
+      "neither_separated": 660
+    },
+    {
+      "dataset": "CLUSTER",
+      "sampled": 120,
+      "wl_collisions": 0,
+      "spd_separated": 0,
+      "spc_separated": 0,
+      "neither_separated": 0
+    },
+    {
+      "dataset": "CIFAR10",
+      "sampled": 120,
+      "wl_collisions": 0,
+      "spd_separated": 0,
+      "spc_separated": 0,
+      "neither_separated": 0
+    }
+  ]
+}

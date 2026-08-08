@@ -1,0 +1,16 @@
+{
+  "epoch": 1,
+  "val_acc": 0.2981337995298431,
+  "test_acc": 0.3081103858689576,
+  "seconds": 1309.2,
+  "params": 19975,
+  "variant": "enc-raw",
+  "seed": 0,
+  "arch": "gcn",
+  "dataset": "CLUSTER",
+  "name": "enc-raw",
+  "radius": 2,
+  "encoder": "raw",
+  "layerwise": false,
+  "channels": "both"
+}

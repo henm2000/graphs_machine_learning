@@ -1,0 +1,19 @@
+\begin{tabular}{llccc}
+\toprule
+& & CSL & CLUSTER & CIFAR10-SP \\
+\midrule
+\multirow{5}{*}{\rotatebox{90}{GCN}}
+& M0~no PE (control) & 10.00\,$\pm$\,0.00 & 39.89\,$\pm$\,4.01 & 46.62 \\
+& M1~LapPE & 98.83\,$\pm$\,1.91 & \textbf{60.00\,$\pm$\,1.00} & 47.12 \\
+& M2~RWPE & \textbf{100.00\,$\pm$\,0.00} & 35.04\,$\pm$\,2.21 & 47.01 \\
+& M3~T-RPE (ours) & 85.50\,$\pm$\,4.97 & 37.67\,$\pm$\,4.89 & \textbf{49.13} \\
+& M4~T-RPE + \#sp (ours) & 99.50\,$\pm$\,2.18 & 39.04\,$\pm$\,6.11 & 48.68 \\
+\midrule
+\multirow{5}{*}{\rotatebox{90}{GAT}}
+& M0~no PE (control) & 10.00\,$\pm$\,0.00 & 48.57\,$\pm$\,11.74 & 59.93 \\
+& M1~LapPE & 97.50\,$\pm$\,3.78 & 64.97\,$\pm$\,0.64 & 60.46 \\
+& M2~RWPE & 99.00\,$\pm$\,4.36 & 53.30\,$\pm$\,1.87 & \textbf{60.74} \\
+& M3~T-RPE (ours) & 85.50\,$\pm$\,6.69 & 66.58\,$\pm$\,1.43 & 60.45 \\
+& M4~T-RPE + \#sp (ours) & \textbf{100.00\,$\pm$\,0.00} & \textbf{69.85\,$\pm$\,0.22} & 59.80 \\
+\bottomrule
+\end{tabular}

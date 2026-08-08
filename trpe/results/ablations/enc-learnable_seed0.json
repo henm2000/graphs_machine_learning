@@ -1,0 +1,16 @@
+{
+  "epoch": 8,
+  "val_acc": 0.3125355375828503,
+  "test_acc": 0.31486115769287,
+  "seconds": 2018.9,
+  "params": 20263,
+  "variant": "enc-learnable",
+  "seed": 0,
+  "arch": "gcn",
+  "dataset": "CLUSTER",
+  "name": "enc-learnable",
+  "radius": 2,
+  "encoder": "learnable",
+  "layerwise": false,
+  "channels": "both"
+}

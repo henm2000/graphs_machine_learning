@@ -1,0 +1,16 @@
+{
+  "epoch": 11,
+  "val_acc": 0.38551169876010966,
+  "test_acc": 0.3934195024208182,
+  "seconds": 2335.2,
+  "params": 20007,
+  "variant": "enc-onehot",
+  "seed": 0,
+  "arch": "gcn",
+  "dataset": "CLUSTER",
+  "name": "enc-onehot",
+  "radius": 2,
+  "encoder": "onehot",
+  "layerwise": false,
+  "channels": "both"
+}

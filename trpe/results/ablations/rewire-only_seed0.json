@@ -1,0 +1,16 @@
+{
+  "epoch": 3,
+  "val_acc": 0.2127587348196176,
+  "test_acc": 0.20635862507847236,
+  "seconds": 1576.4,
+  "params": 19975,
+  "variant": "rewire-only",
+  "seed": 0,
+  "arch": "gcn",
+  "dataset": "CLUSTER",
+  "name": "rewire-only",
+  "radius": 2,
+  "encoder": "const",
+  "layerwise": false,
+  "channels": "both"
+}

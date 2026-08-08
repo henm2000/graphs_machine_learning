@@ -1,0 +1,16 @@
+{
+  "epoch": 16,
+  "val_acc": 0.34633761340201813,
+  "test_acc": 0.35200330228838267,
+  "seconds": 1587.4,
+  "params": 20215,
+  "variant": "r1",
+  "seed": 0,
+  "arch": "gcn",
+  "dataset": "CLUSTER",
+  "name": "r1",
+  "radius": 1,
+  "encoder": "sinusoidal",
+  "layerwise": false,
+  "channels": "both"
+}

@@ -1,0 +1,16 @@
+{
+  "epoch": 8,
+  "val_acc": 0.21283511410216152,
+  "test_acc": 0.20792377217650043,
+  "seconds": 2020.5,
+  "params": 20215,
+  "variant": "profile-only",
+  "seed": 0,
+  "arch": "gcn",
+  "dataset": "CLUSTER",
+  "name": "profile-only",
+  "radius": 2,
+  "encoder": "sinusoidal",
+  "layerwise": false,
+  "channels": "profile"
+}

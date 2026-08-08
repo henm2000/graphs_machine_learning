@@ -125,8 +125,10 @@ accounts, a few days.
 Predefined splits throughout (CSL uses stratified 5-fold, having none). Model selection on
 **validation** accuracy, test set read once at the selected epoch — *not* averaged over final
 epochs, which conflates convergence noise with performance. Parameter counts recorded in every
-result file rather than forced to match: the PE modules add 500–1000 parameters to an ~18k
-backbone, so no condition holds a meaningful capacity advantage.
+result file rather than forced to match. Measured overhead is **+12–14% (GCN)** and **+35–37%
+(GAT)** on an ~18k backbone — large enough that capacity is a live confound, which is why
+`rewire-only` (parameter-identical to M3, constant edge feature) carries the attribution
+argument rather than the raw M3-vs-M0 gap.
 
 ---
 
@@ -203,44 +205,43 @@ asset mapping in [`paper/README.md`](paper/README.md).
 | 3 Method | construction, encoder, injection, complexity, invariance | 1.0 p | **written** |
 | 4 Expressive Power | Props 2–4 with witnesses | 0.8 p | **written** |
 | 5 Experimental Setup | datasets, conditions, protocol, ablations | 0.5 p | **written** |
-| 6 Results & Discussion | Table 1 main; Table 2 expressivity; Fig 2 ablations; Fig 3 cost | 1.1 p | `TODO` per paragraph |
-| 7 Limitations & Conclusion | sub-3-WL bound; dense-graph degeneracy; `r` as a cost knob | 0.35 p | limitations written |
+| 6 Results & Discussion | Table 1 main; Table 2 expressivity; Fig 2 ablations | 1.1 p | **written** |
+| 7 Limitations & Conclusion | sub-3-WL bound; dense-graph degeneracy; `r` as a cost knob | 0.35 p | **written** |
 
-Sections 1–5 were written before any results because none of them depend on results. What
-remains is four marked paragraphs in §6, the conclusion, and the abstract's headline sentence.
-Every table and figure is regenerated from JSON by
+Sections 1–5 were written before any results because none of them depend on results, and they
+were **deliberately left unchanged** once the results came in, so that §5 still reads as the
+pre-registration it was. Every table and figure is regenerated from JSON by
 [`shared/07_results_and_figures.ipynb`](shared/07_results_and_figures.ipynb) — nothing is
-transcribed by hand.
-
-Both positive and negative results are explicitly valued by the grading rubric. The Prop. 3
-ceiling and any dense-graph degeneracy are reported as findings.
+transcribed by hand. The one open issue is length: see [`TODO.md`](TODO.md).
 
 ---
 
-## Risks
+## Risks, and how each turned out
 
-**CLUSTER is degenerate — confirmed 2026-08-07.** Measured: mean diameter **2.2**, 100% of pairs
-at distance ≤ 2, 3.3× edge blow-up. *Decision: keep it.* Because the diagnostic ran before any
-training, we now hold a pre-registered prediction — T-RPE should give little or nothing on
-CLUSTER (diameter 2.2) and should help on CIFAR10-SP (8.5) and CSL (6.0). A prediction that
-comes true is far stronger evidence for the mechanism than an unexplained accuracy win. Framed
-as design rather than accident —
-CIFAR10-SP (sparse 8-NN, large diameter) versus CLUSTER (dense, tiny diameter) is a deliberate
-contrast testing the hypothesis that traversal encodings help precisely when graphs are sparse
-and long-diameter. Notebook 00's distance diagnostic decides before ~2h is spent: if CLUSTER
-comes back degenerate, either report it as the dense regime at `r=2`, or swap CLUSTER →
-MNIST-SP (same 8-NN sparsity, predefined split, non-molecular).
+**CLUSTER is degenerate — confirmed 2026-08-07, and the prediction built on it FAILED.**
+Measured before training: mean diameter **2.2**, 100% of pairs at distance ≤ 2, 3.3× edge
+blow-up. *Decision at the time: keep it*, on the reasoning that we then held a pre-registered
+prediction — T-RPE should give little or nothing on CLUSTER and should help on CIFAR10-SP (8.5)
+and CSL (6.0).
 
-**Edge blow-up at `r=3`.** Notebook 06 measures `|E_r|/|E|` per dataset. `r` is an ablation
-axis, not a fixed commitment; cap at `r=2` if memory requires.
+The opposite happened. CLUSTER produced our **largest gain anywhere** (+21.3 under GAT) and
+CIFAR10-SP produced essentially nothing (+2.5 / −0.1). Notebook 01 explains why: CLUSTER and
+CIFAR10-SP have **zero** 1-WL collisions between them, so expressivity was never the binding
+constraint on either, and the diameter was the wrong variable to reason from. The decision to
+keep CLUSTER was still right — it is the dataset that exposed the injection finding — but for
+none of the reasons recorded above.
 
-**CSL saturates.** RWPE also solves CSL (~100%) while M0 sits at chance (10%). Report honestly:
-CSL shows the method is in the right expressivity class, and differentiation against RWPE has
-to come from CLUSTER/CIFAR10 accuracy and from cost.
+**Edge blow-up at `r=3`.** Measured: 2.9–3.3× at `r=2`, up to 6.0× at `r=3`. `r=3` scored
+*worse* than `r=2` in the ablation (30.29 vs 36.11), so the reach was not worth paying for.
 
-**Attribution.** The `rewire-only` ablation is the one row that makes the main result
-interpretable. It is currently a single CLUSTER run (~40 min). Without it, §6 cannot claim a
-positional encoding — only a rewiring scheme.
+**CSL saturates.** Confirmed: LapPE and RWPE both solve CSL while M0 sits at exactly chance, and
+M3 is capped at 90% by a bound we proved. Reported as predicted-vs-measured rather than as a
+ranking, exactly as planned.
+
+**Attribution.** `rewire-only` came in 15.5 points below T-RPE at matched budget, so the paper
+can claim a positional encoding rather than a rewiring scheme. It also turned out to be the
+capacity control, which mattered more than expected once the parameter overhead was measured at
++35% under GAT rather than the ~1k we had assumed.
 
 ---
 
@@ -265,12 +266,20 @@ positional encoding — only a rewiring scheme.
 
 ## Where things stand
 
-Built and verified: all 35 notebooks, the theory (notebook 01 executed, all propositions
-confirmed), and paper §§1–5.
+**Complete, 2026-08-08.** All 35 notebooks run, 240/240 grid cells, theory confirmed,
+ablations and efficiency done, paper fully written. Results merged into `trpe/` in the repo.
 
-**Done since:** notebook 00 run (all API checks pass; CLUSTER confirmed degenerate); the Phase-2
-gate caught the injection defect; dual-channel injection implemented across all 30 leaf
-notebooks and the ablations; CSL radius 3 → 6; Proposition 5 added to the paper.
+**The headline is a failed prediction.** The sparse-vs-dense hypothesis this plan was built
+around did not survive contact with the data: T-RPE gave nothing on CIFAR10-SP (+2.5 / −0.1)
+and its largest gain anywhere on CLUSTER (+21.3, GAT), the dataset predicted to be degenerate.
+Notebook 01 explains why the prediction was mis-aimed rather than merely unlucky — CLUSTER and
+CIFAR10-SP produce **zero** 1-WL collisions, so expressivity was never the binding constraint
+on either, and an intervention justified by expressivity had no route to helping there.
 
-**Remaining:** re-run the Phase-2 gate on the fixed model, then the grid, then fill §6, the
-conclusion and the abstract from the generated assets.
+What replaced it is the injection finding: the same encoding is worth −2.2 under GCN and +18.0
+under GAT on identical graphs, which is Proposition 5's mechanism operating outside the
+vertex-transitive setting where we proved it. §§1–5 were left untouched as the pre-registration;
+§6 reports the miss and the mechanism.
+
+**Remaining:** fill the repository URL in Appendix B, and check the 5-page limit in Overleaf
+(`acl.sty` is not installed locally, so page count could not be verified here).
