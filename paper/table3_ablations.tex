@@ -1,0 +1,16 @@
+\begin{tabular}{lccrr}
+\toprule
+variant & $r$ & channels & \#Param & test acc. \\
+\midrule
+$r{=}1$ (unrewired control) & 1 & both & 20\,215 & 35.20 \\
+$r{=}2$ (= M3) & 2 & both & 20\,215 & 36.11 \\
+$r{=}3$ & 3 & both & 20\,215 & 30.29 \\
+\textbf{rewire-only} & 2 & both & 19\,975 & 20.64 \\
+raw scalar encoder & 2 & both & 19\,975 & 30.81 \\
+one-hot encoder & 2 & both & 20\,007 & 39.34 \\
+learned-table encoder & 2 & both & 20\,263 & 31.49 \\
+layerwise injection & 2 & both & 21\,898 & 39.57 \\
+\textbf{weight-only} & 2 & weight & 18\,615 & 38.84 \\
+\textbf{profile-only} & 2 & profile & 20\,215 & 20.79 \\
+\bottomrule
+\end{tabular}
